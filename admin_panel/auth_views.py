@@ -1,9 +1,19 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from .auth_serializers import AdminLoginSerializer, AdminPasswordResetSerializer
+from .auth_serializers import (
+    AdminLoginSerializer, 
+    AdminPasswordResetSerializer,
+    ForgotPasswordSerializer,
+    SetNewPasswordSerializer
+)
 from core.exceptions import APIResponse
 from .permissions import IsAdminRole, AdminLoggerMixin
+from django.conf import settings
+from accounts.models import User, PasswordResetToken
+import sendgrid
+from sendgrid.helpers.mail import Mail
+import os
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -45,3 +55,64 @@ class AdminPasswordResetView(generics.GenericAPIView, AdminLoggerMixin):
         user.save()
         self.log_action(user, "Changed Admin Password", "User", str(user.id))
         return APIResponse(message="Password changed successfully.")
+
+class ForgotPasswordView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = ForgotPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        user = User.objects.get(email=email)
+
+        # Generate token
+        reset_token = PasswordResetToken.objects.create(user=user)
+
+        # Send email
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
+        subject = "Reset your password"
+        html_content = f"""
+            <h2>Password Reset</h2>
+            <p>Click the link below to reset your password</p>
+            <a href="{reset_link}">Reset Password</a>
+            <p>This link will expire in {settings.PASSWORD_RESET_TIMEOUT_MINUTES} minutes</p>
+        """
+        
+        message = Mail(
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@kick360.com'),
+            to_emails=email,
+            subject=subject,
+            html_content=html_content
+        )
+        
+        try:
+            api_key = os.getenv('SENDGRID_API_KEY')
+            if not api_key:
+                raise ValueError("SENDGRID_API_KEY is not set.")
+            sg = sendgrid.SendGridAPIClient(api_key=api_key)
+            sg.send(message)
+        except Exception as e:
+            return Response({"success": False, "message": f"Error sending email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return APIResponse(message="Password reset link sent to your email.")
+
+class SetNewPasswordView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = SetNewPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        reset_token = serializer.validated_data['reset_token']
+        new_password = serializer.validated_data['new_password']
+        
+        user = reset_token.user
+        user.set_password(new_password)
+        user.save()
+        
+        reset_token.is_used = True
+        reset_token.save()
+        
+        return APIResponse(message="Password has been reset successfully. You can now login.")

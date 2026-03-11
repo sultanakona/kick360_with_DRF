@@ -17,7 +17,7 @@ class TrainingSession(BaseModel):
     description = models.TextField(blank=True)
     equipment_used = models.TextField(blank=True)
     steps = models.TextField(blank=True)
-    video_file = models.FileField(upload_to='training/sessions/', blank=True, null=True)
+    video_file = models.FileField(upload_to='training/videos/', blank=True, null=True)
     duration_seconds = models.IntegerField(default=60)
     points = models.IntegerField(default=0)
     score_required = models.IntegerField(default=0)

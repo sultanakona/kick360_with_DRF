@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from accounts.models import User
+from accounts.models import User, PasswordResetToken
+from django.conf import settings
 
 class AdminLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -28,3 +29,29 @@ class AdminPasswordResetSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError("Incorrect current password.")
         return value
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        try:
+            user = User.objects.get(email=value, is_staff=True)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Admin account with this email not found.")
+        return value
+
+class SetNewPasswordSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, data):
+        token_uuid = data.get('token')
+        try:
+            reset_token = PasswordResetToken.objects.get(token=token_uuid)
+            if not reset_token.is_valid(timeout_minutes=settings.PASSWORD_RESET_TIMEOUT_MINUTES):
+                raise serializers.ValidationError("Token has expired or already been used.")
+        except PasswordResetToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid token.")
+        
+        data['reset_token'] = reset_token
+        return data

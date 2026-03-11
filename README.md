@@ -130,3 +130,24 @@ The application relies on a service layer (`access_codes/services.py`) to verify
 If the following `.env` settings are missing, the app defaults to dummy verification strictly for local testing:
 - `SHOPIFY_API_URL`
 - `SHOPIFY_API_TOKEN`
+
+## System Overview
+
+The Kick 360 backend is designed to serve both the mobile application users and the web-based administrative panel.
+
+### 1. User Application Flow (Mobile App)
+- **Authentication**: Users log in leveraging "Access Codes" purchased via a Shopify integration. Once validated, users receive secure JWT tokens.
+- **Engaging & Training**: Users can watch predefined categories of training videos, upload actual playground sessions (limited to 5 per record), and earn points and track streaks based on consecutive daily activities.
+- **Social Connectivity**: A built-in follow system allows users to discover peers based on global ranking, tracking each other's progress.
+- **Tournaments**: Users can dynamically join active tournaments, competing on exclusive leaderboards filtered strictly by activity within the tournament window.
+
+### 2. Administrator Flow (Web Panel)
+- **Authentication**: Administrators securely log in using a standard email and password system.
+- **Password Reset (SendGrid)**: If an admin forgets their password, they can request a reset link. This flow generates a secure, single-use, 15-minute expiring token. Emails are configured and delivered securely utilizing **SendGrid**.
+- **Management**: Admins have complete control over data metrics, tournament scheduling, training video management, and user moderation.
+
+### 3. Dynamic Leaderboard Engine
+The core of the application's gamification relies on a robust leaderboard system:
+- **Calculation Formula**: Users are ranked dynamically based on descending values of **Points**, then total **Kicks**, and finally their active **Streak**.
+- **Global & Contextual Ranks**: The API explicitly returns positional ranks (e.g., 1, 2, 3) ensuring immediate clarity on the frontend without relying solely on array indexing.
+

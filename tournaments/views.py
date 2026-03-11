@@ -1,4 +1,7 @@
 from rest_framework import generics, status, serializers
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+
 from rest_framework.permissions import IsAuthenticated
 from core.permissions import HasActiveSubscription
 from .models import Tournament, TournamentParticipation
@@ -16,10 +19,15 @@ class TournamentListView(generics.ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return APIResponse(data=serializer.data, message="Active tournaments retrieved.")
 
+@extend_schema(
+    responses=TournamentSerializer
+)
 class TournamentDetailView(generics.RetrieveAPIView):
     permission_classes = (IsAuthenticated, HasActiveSubscription)
     serializer_class = TournamentSerializer
     queryset = Tournament.objects.all()
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -29,10 +37,15 @@ class TournamentDetailView(generics.RetrieveAPIView):
 class TournamentJoinSerializer(serializers.Serializer):
     pass
 
+@extend_schema(
+    responses={200: TournamentParticipationSerializer}
+)
 class TournamentJoinView(generics.GenericAPIView):
     permission_classes = (IsAuthenticated, HasActiveSubscription)
     queryset = Tournament.objects.filter(is_active=True)
     serializer_class = TournamentJoinSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def post(self, request, *args, **kwargs):
         tournament = self.get_object()
@@ -50,6 +63,9 @@ class TournamentJoinView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+@extend_schema(
+    responses=TournamentParticipationSerializer(many=True)
+)
 class TournamentLeaderboardView(generics.ListAPIView):
     permission_classes = (IsAuthenticated, HasActiveSubscription)
     serializer_class = TournamentParticipationSerializer
@@ -57,7 +73,7 @@ class TournamentLeaderboardView(generics.ListAPIView):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return TournamentParticipation.objects.none()
-        tournament_id = self.kwargs['pk']
+        tournament_id = self.kwargs['id']
         return TournamentParticipation.objects.filter(tournament_id=tournament_id).order_by('-total_kicks')
 
     def list(self, request, *args, **kwargs):

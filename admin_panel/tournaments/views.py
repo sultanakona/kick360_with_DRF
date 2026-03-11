@@ -12,6 +12,9 @@ class AdminTournamentViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
     permission_classes = [IsAdminRole]
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
+
 
     def perform_create(self, serializer):
         is_free = serializer.validated_data.get('is_free', False)
@@ -40,7 +43,7 @@ class AdminTournamentViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         self.log_action(self.request.user, "Deleted Tournament", "Tournament", tournament_id)
 
     @action(detail=True, methods=['patch'])
-    def publish(self, request, pk=None):
+    def publish(self, request, id=None):
         tournament = self.get_object()
         tournament.is_active = True
         tournament.save()
@@ -48,7 +51,7 @@ class AdminTournamentViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         return Response({'status': 'success', 'message': 'Tournament published.'})
 
     @action(detail=True, methods=['patch'])
-    def pause(self, request, pk=None):
+    def pause(self, request, id=None):
         tournament = self.get_object()
         tournament.is_active = False
         tournament.save()
@@ -56,7 +59,7 @@ class AdminTournamentViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         return Response({'status': 'success', 'message': 'Tournament paused.'})
 
     @action(detail=True, methods=['delete'])
-    def delete(self, request, pk=None):
+    def delete(self, request, id=None):
         tournament = self.get_object()
         tournament_id = str(tournament.id)
         tournament.delete()
@@ -64,7 +67,7 @@ class AdminTournamentViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         return Response({'status': 'success', 'message': 'Tournament deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'])
-    def participants(self, request, pk=None):
+    def participants(self, request, id=None):
         tournament = self.get_object()
         participants = tournament.participations.all().order_by('-total_kicks')
         serializer = AdminTournamentParticipationSerializer(participants, many=True)

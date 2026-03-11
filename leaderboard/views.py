@@ -3,15 +3,21 @@ from rest_framework.permissions import IsAuthenticated
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from core.exceptions import APIResponse
-from django.db.models import F
+from django.db.models import F, Window
+from django.db.models.functions import Rank
 
 class GlobalLeaderboardView(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = UserSerializer
 
     def get_queryset(self):
-        # Already indexed on -total_kicks
-        return User.objects.filter(is_active=True).order_by('-total_kicks')
+        # Annotate with a dynamic rank based on points, total_kicks, and streak
+        return User.objects.filter(is_active=True).annotate(
+            dynamic_rank=Window(
+                expression=Rank(),
+                order_by=[F('points').desc(), F('total_kicks').desc(), F('streak').desc()]
+            )
+        ).order_by('-points', '-total_kicks', '-streak')
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -28,7 +34,7 @@ class GlobalLeaderboardView(generics.ListAPIView):
         response_data = {
             "top_3": self.get_serializer(top_3, many=True).data,
             "current_user": {
-                "rank": current_user.rank,
+                "rank": getattr(current_user, 'dynamic_rank', current_user.rank),
                 "total_kicks": current_user.total_kicks,
                 "name": current_user.name
             },
