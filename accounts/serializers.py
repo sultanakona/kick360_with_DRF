@@ -4,10 +4,16 @@ from access_codes.models import AccessCode
 from access_codes.services import ShopifyService
 
 class UserSerializer(serializers.ModelSerializer):
+    rank = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ['id', 'name', 'profile_image', 'country', 'position', 'access_code', 'total_kicks', 'rank', 'points', 'streak']
         read_only_fields = ['id', 'access_code', 'total_kicks', 'rank', 'points', 'streak']
+
+    def get_rank(self, obj):
+        # Use dynamic_rank if annotated, otherwise fetch the static rank
+        return getattr(obj, 'dynamic_rank', obj.rank)
 
 class RegisterSerializer(serializers.ModelSerializer):
     access_code = serializers.CharField(required=True)

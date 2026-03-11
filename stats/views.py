@@ -12,17 +12,20 @@ from django.db.models import Sum
 from .services import LeaderboardService
 
 class LeaderboardPlayerSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
     rank = serializers.IntegerField()
     name = serializers.CharField(allow_null=True)
-    profile_image = serializers.URLField(allow_null=True)
+    avatar = serializers.CharField(allow_null=True)
     total_kicks = serializers.IntegerField()
     points = serializers.IntegerField()
     streak = serializers.IntegerField()
 
+class LeaderboardDataSerializer(serializers.Serializer):
+    top_11 = LeaderboardPlayerSerializer(many=True)
+
 class LeaderboardResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
-    data = LeaderboardPlayerSerializer(many=True)
-    message = serializers.CharField()
+    data = LeaderboardDataSerializer()
 
 from django.utils import timezone
 from .models import PerformanceTrack
@@ -90,38 +93,31 @@ class StatsLeaderboardView(APIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(name='filter', description='Filter type (everyone, germany, following)', required=False, type=str),
-            OpenApiParameter(name='month', description='Month (1-12)', required=False, type=int),
-            OpenApiParameter(name='year', description='Year', required=False, type=int),
         ],
         responses={200: LeaderboardResponseSerializer}
     )
     def get(self, request):
         filter_type = request.query_params.get('filter', 'everyone')
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
-        
-        if month: month = int(month)
-        if year: year = int(year)
         
         user = request.user
-        leaderboard_data = LeaderboardService.get_top_players(user, filter_type, month, year)
+        top_players = LeaderboardService.get_top_players(user, filter_type)
         
-        response_data = [
-            {
+        # Prepare leaderboard data with ranking
+        top_11_data = []
+        for i, player in enumerate(top_players):
+            top_11_data.append({
+                "id": str(player.id),
+                "name": player.name or "Unknown",
+                "avatar": player.profile_image or "",
+                "points": player.points,
                 "rank": i + 1,
-                "user_id": player['user'],
-                "name": player['name'],
-                "profile_image": player['profile_image'], # Already absolute URL or placeholder in profile_image field
-                "total_score": player['monthly_score'],
-                "streak": player['streak'],
-                "total_kicks": player['total_kicks'],
-                "points": player['points']
-            }
-            for i, player in enumerate(leaderboard_data)
-        ]
+                "total_kicks": player.total_kicks,
+                "streak": player.streak
+            })
         
         return Response({
             "success": True,
-            "data": response_data,
-            "message": f"Top 11 players ({filter_type.capitalize()}) for {month or 'current'}/{year or 'current'}"
+            "data": {
+                "top_11": top_11_data
+            }
         })

@@ -15,6 +15,8 @@ class AdminTrainingCategoryViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
     queryset = TrainingCategory.objects.all().order_by('title')
     serializer_class = AdminTrainingCategorySerializer
     permission_classes = [IsAdminRole]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def perform_create(self, serializer):
         category = serializer.save()
@@ -45,7 +47,23 @@ class AdminTrainingCategoryViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         )
 
 @extend_schema(
-    request=AdminTrainingSessionSerializer,
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'Select_category': {'type': 'string'},
+                'Title': {'type': 'string'},
+                'Subtitle': {'type': 'string'},
+                'Equipment_used': {'type': 'string'},
+                'Steps': {'type': 'string'},
+                'Time': {'type': 'string'},
+                'Points': {'type': 'integer'},
+                'video': {'type': 'string', 'format': 'binary'},
+                'is_pulished': {'type': 'boolean'},
+            },
+            'required': ['Select_category', 'Title', 'Time'],
+        }
+    },
     responses=AdminTrainingSessionSerializer
 )
 class AdminTrainingSessionViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
@@ -53,6 +71,8 @@ class AdminTrainingSessionViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
     serializer_class = AdminTrainingSessionSerializer
     permission_classes = [IsAdminRole]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def perform_create(self, serializer):
         session = serializer.save()
@@ -83,7 +103,7 @@ class AdminTrainingSessionViewSet(viewsets.ModelViewSet, AdminLoggerMixin):
         )
 
     @action(detail=True, methods=['patch'])
-    def publish(self, request, pk=None):
+    def publish(self, request, id=None):
         session = self.get_object()
         session.is_published = True
         session.save()

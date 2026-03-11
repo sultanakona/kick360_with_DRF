@@ -3,7 +3,7 @@ from .views import TournamentListView, TournamentDetailView, TournamentJoinView,
 
 urlpatterns = [
     path('', TournamentListView.as_view(), name='tournament-list'),
-    path('<int:pk>/', TournamentDetailView.as_view(), name='tournament-detail'),
-    path('<int:pk>/join/', TournamentJoinView.as_view(), name='tournament-join'),
-    path('<int:pk>/leaderboard/', TournamentLeaderboardView.as_view(), name='tournament-leaderboard'),
+    path('<uuid:id>/', TournamentDetailView.as_view(), name='tournament-detail'),
+    path('<uuid:id>/join/', TournamentJoinView.as_view(), name='tournament-join'),
+    path('<uuid:id>/leaderboard/', TournamentLeaderboardView.as_view(), name='tournament-leaderboard'),
 ]
